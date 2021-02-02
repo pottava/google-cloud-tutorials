@@ -7,13 +7,12 @@
 
 [共有 VPC](https://cloud.google.com/vpc/docs/shared-vpc?hl=ja) 上に Lustre による分散ストレージと Slurm ベースの計算クラスタを構築するための手順です。
 
-**所要時間**: 約 60 分
+**所要時間**: 約 30 分
 
 **前提条件**:
 
-- [組織が作成](https://cloud.google.com/resource-manager/docs/creating-managing-organization?hl=ja) してある
-- 共有 VPC / ストレージ / 計算クラスタのための 3 つのプロジェクトが作成してある
-- 組織管理者・組織ポリシー管理者・各プロジェクトのオーナー権限をもつアカウントでログインしている
+- 計算クラスタのためのプロジェクトが作成してある
+- プロジェクトのオーナー権限をもつアカウントでログインしている
 
 **[開始]** ボタンをクリックして次のステップに進みます。
 
@@ -21,112 +20,20 @@
 
 この手順の中で実際にリソースを構築する対象のプロジェクトを選択してください。
 
-<walkthrough-project-billing-setup permissions="compute.googleapis.com,iam.roles.create,iam.roles.delete,iam.roles.get,iam.roles.list,iam.roles.undelete,iam.roles.update,resourcemanager.organizations.get,resourcemanager.organizations.getIamPolicy,resourcemanager.projects.get,resourcemanager.projects.getIamPolicy,resourcemanager.projects.list"></walkthrough-project-billing-setup>
-
-## 権限付与
-
-Compute Shared VPC 管理者、Project IAM 管理者権限を付与します。
-
-```bash
-org_id="$( gcloud organizations list --format 'value(name)' )"
-account="$( gcloud auth list --format 'value(account)' )"
-gcloud organizations add-iam-policy-binding "${org_id}" \
-    --member="user:${account}" \
-    --role="roles/compute.xpnAdmin"
-gcloud organizations add-iam-policy-binding "${org_id}" \
-    --member="user:${account}" \
-    --role="roles/resourcemanager.projectIamAdmin"
-```
-
-## 共有 VPC の有効化
-
-共有 VPC のプロジェクト ID を設定します。
-
-```bash
-export host_project_id='?'
-```
-
-共有 VPC を有効化します。
-
-```bash
-gcloud --project "${host_project_id}" services enable compute.googleapis.com
-gcloud compute shared-vpc enable "${host_project_id}"
-```
-
-## サービスプロジェクトの接続
-
-ストレージ、計算クラスタのプロジェクト ID をそれぞれ設定します。
-
-```bash
-export storage_project_id='?'
-export compute_project_id='?'
-```
-
-サービスプロジェクトとして、それぞれのプロジェクトを共有 VPC プロジェクトに接続します。
-
-```bash
-gcloud --project "${storage_project_id}" services enable compute.googleapis.com
-gcloud compute shared-vpc associated-projects add "${storage_project_id}" \
-    --host-project "${host_project_id}"
-gcloud --project "${compute_project_id}" services enable compute.googleapis.com
-gcloud compute shared-vpc associated-projects add "${compute_project_id}" \
-    --host-project "${host_project_id}"
-```
-
-接続状態を確認します。
-
-```bash
-gcloud compute shared-vpc list-associated-resources "${host_project_id}"
-```
-
-## 必要なユーザにサブネットへのアクセスを許可
-
-各サービス プロジェクト側でインスタンス作成などを実施するユーザーに対し、ホスト プロジェクトのサブネットを扱う権限とインスタンスに対し [IAP トンネリング](https://cloud.google.com/iap/docs/using-tcp-forwarding?hl=ja) する権限を付与します（後半、より安全な SSH 接続をするために利用します）。
-
-```bash
-account="$( gcloud auth list --format 'value(account)' )"
-gcloud projects add-iam-policy-binding "${host_project_id}" \
-    --member "user:${account}" \
-    --role "roles/compute.networkUser"
-gcloud projects add-iam-policy-binding "${host_project_id}" \
-    --member "user:${account}" \
-    --role "roles/compute.networkUser"
-gcloud projects add-iam-policy-binding "${compute_project_id}" \
-    --member="user:${account}" \
-    --role=roles/iap.tunnelResourceAccessor
-gcloud projects add-iam-policy-binding "${storage_project_id}" \
-    --member="user:${account}" \
-    --role=roles/iap.tunnelResourceAccessor
-```
-
-## サービスアカウントにサブネットへのアクセスを許可
-
-[Google API サービス エージェント](https://cloud.google.com/iam/docs/service-accounts?hl=ja#google-managed)、計算クラスタの VM にアタッチする予定のサービスアカウントに対し、ホスト プロジェクトのサブネットを扱う権限を付与します。
-
-```bash
-gcloud projects add-iam-policy-binding "${host_project_id}" \
-    --member "serviceAccount:$( gcloud projects list \
-        --filter="${compute_project_id}" --format="value(PROJECT_NUMBER)" \
-        )@cloudservices.gserviceaccount.com" \
-    --role "roles/compute.networkUser"
-gcloud projects add-iam-policy-binding "${host_project_id}" \
-    --member "serviceAccount:$( gcloud projects list \
-        --filter="${compute_project_id}" --format="value(PROJECT_NUMBER)" \
-        )-compute@developer.gserviceaccount.com" \
-    --role "roles/compute.networkUser"
-gcloud projects add-iam-policy-binding "${host_project_id}" \
-    --member "serviceAccount:$( gcloud projects list \
-        --filter="${storage_project_id}" --format="value(PROJECT_NUMBER)" \
-        )@cloudservices.gserviceaccount.com" \
-    --role "roles/compute.networkUser"
-```
+<walkthrough-project-billing-setup permissions="compute.googleapis.com"></walkthrough-project-billing-setup>
 
 ## Cloud NAT の起動
+
+プロジェクト ID を設定します。
+
+```bash
+export project_id='?'
+```
 
 **計算クラスタのノードにパブリックな静的 IP アドレスを付与しない予定の場合**、手動で Cloud NAT を作成しておく必要があります。まず Cloud Router を作ります。
 
 ```bash
-gcloud config set project "${host_project_id}"
+gcloud config set project "${project_id}"
 gcloud config set compute/region {{region}}
 gcloud compute routers create nat-router --network default
 ```
@@ -148,7 +55,6 @@ gcloud compute routers nats create nat-config \
 デフォルトでは接続元 IP アドレスを縛っていません。以下のデフォルト設定は無効化しつつ、[Identity-Aware Proxy (IAP) を併用した SSH](https://cloud.google.com/iap/docs/using-tcp-forwarding?hl=ja) によるより安全な接続を利用します。IAP の利用する IP レンジからの接続も許可します。
 
 ```bash
-gcloud config set project "${host_project_id}"
 gcloud compute firewall-rules update default-allow-ssh --disabled
 gcloud compute firewall-rules update default-allow-rdp --disabled
 gcloud compute firewall-rules create allow-ssh-from-google-iap \
@@ -160,7 +66,7 @@ gcloud compute firewall-rules create allow-ssh-from-google-iap \
 利用可能なサブネットやその IP レンジを確認しましょう。
 
 ```text
-ip_range=$( gcloud --project "${host_project_id}" compute networks subnets list-usable \
+ip_range=$( gcloud compute networks subnets list-usable \
     --filter 'subnetwork~.*\/{{region}}\/subnetworks\/default' \
     --format 'value(ip_cidr_range)' ) && echo "${ip_range}"
 ```
@@ -187,7 +93,6 @@ resources:
     cluster_name            : lustre
     zone                    : {{zone}}
     cidr                    : 10.146.0.0/20
-    shared_vpc_host_proj    : ${host_project_id}
     vpc_net                 : default
     vpc_subnet              : default
     external_ips            : True
@@ -228,7 +133,6 @@ EOF
 [Deployment Manager](https://cloud.google.com/deployment-manager?hl=ja) という機能を使い、テンプレートの内容を正としたクラスタを構築します。
 
 ```bash
-gcloud config set project "${storage_project_id}"
 gcloud services enable deploymentmanager.googleapis.com
 gcloud deployment-manager deployments create lustre --config lustre.yaml
 ```
@@ -276,13 +180,6 @@ exit
 
 ## 計算クラスタの構築の準備 (1)
 
-作業ディレクトリのルートにもどり、計算クラスタ用のプロジェクト ID に切り替えます。
-
-```bash
-cd ~/cloudshell_open/google-cloud-tutorials/
-gcloud config set project "${compute_project_id}"
-```
-
 VM がより近接した配置となるよう、[プレイスメントポリシー](https://cloud.google.com/compute/docs/instances/define-instance-placement?hl=ja) を事前に作成します。
 
 ```bash
@@ -293,9 +190,10 @@ gcloud compute resource-policies create group-placement \
 
 ## 計算クラスタの構築の準備 (2)
 
-スクリプトをダウンロードし、作業ディレクトリを移動します。
+作業ディレクトリのルートにもどりスクリプトをダウンロードし、作業ディレクトリを移動します。
 
 ```bash
+cd ~/cloudshell_open/google-cloud-tutorials/
 git clone https://github.com/SchedMD/slurm-gcp.git && cd slurm-gcp
 ```
 
@@ -315,7 +213,6 @@ resources:
     vpc_net                 : default
     vpc_subnet              : default
 
-    shared_vpc_host_project : ${host_project_id}
     # suspend_time            : 300
 
     # ヘッドノード
@@ -339,7 +236,7 @@ resources:
     # ファイルシステムのマウント（共通）
     network_storage:
       - fs_type: lustre
-        server_ip: lustre-mds1.{{zone}}.c.${storage_project_id}.internal
+        server_ip: lustre-mds1.{{zone}}.c.${project_id}.internal
         remote_mount: /lustre/users
         local_mount: /home
 
@@ -358,7 +255,7 @@ resources:
         # ファイルシステムのマウント
         network_storage:
           - fs_type: lustre
-            server_ip: lustre-mds1.{{zone}}.c.${storage_project_id}.internal
+            server_ip: lustre-mds1.{{zone}}.c.${project_id}.internal
             remote_mount: /lustre/apps
             local_mount: /apps
 EOF
@@ -383,7 +280,6 @@ sed -ie "s|centos-cloud/global/images/family/centos-7|rhel-cloud/global/images/f
 以下コマンドで、計算クラスタを構築しましょう。
 
 ```bash
-gcloud config set project "${compute_project_id}"
 gcloud deployment-manager deployments create hpc-cluster \
     --config slurm-cluster.yaml
 ```
@@ -422,7 +318,6 @@ exit
 
 ```bash
 cd ~/cloudshell_open/google-cloud-tutorials/slurm-gcp/
-gcloud config set project "${compute_project_id}"
 gcloud deployment-manager deployments delete hpc-cluster
 ```
 
@@ -430,7 +325,6 @@ Lustre クラスタの削除
 
 ```bash
 cd ~/cloudshell_open/google-cloud-tutorials/deploymentmanager-samples/community/lustre/
-gcloud config set project "${storage_project_id}"
 gcloud deployment-manager deployments delete lustre
 ```
 
@@ -438,7 +332,6 @@ Cloud NAT の削除
 
 ```bash
 cd ~/cloudshell_open/google-cloud-tutorials/
-gcloud config set project "${host_project_id}"
 gcloud compute routers nats delete nat-config
 gcloud compute routers delete nat-router --region {{region}}
 ```
