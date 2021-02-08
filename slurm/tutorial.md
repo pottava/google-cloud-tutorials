@@ -1,4 +1,4 @@
-# Slurm と Lustre による HPC 環境の構築
+# Slurm による HPC 環境の構築
 
 <walkthrough-watcher-constant key="region" value="asia-northeast1"></walkthrough-watcher-constant>
 <walkthrough-watcher-constant key="zone" value="asia-northeast1-c"></walkthrough-watcher-constant>
@@ -8,9 +8,9 @@
 
 ## 始めましょう
 
-[Lustre](https://www.lustre.org/) による分散ストレージと [Slurm](https://slurm.schedmd.com/documentation.html) ベースの計算クラスタを構築するための手順です。
+[Slurm](https://slurm.schedmd.com/documentation.html) ベースの計算クラスタを構築するための手順です。
 
-**所要時間**: 約 45 分
+**所要時間**: 約 20 分
 
 **前提条件**:
 
@@ -62,121 +62,6 @@ gcloud compute firewall-rules create allow-from-internal \
     --network={{vpc}} --direction=INGRESS --priority=1000 \
     --action=ALLOW --rules=tcp:0-65535,udp:0-65535,icmp \
     --source-ranges=10.0.0.0/8
-```
-
-## Lustre クラスタの設定
-
-スクリプトをダウンロードし、
-
-```bash
-git clone https://github.com/GoogleCloudPlatform/deploymentmanager-samples.git \
-    ~/deploymentmanager-samples
-cd ~/deploymentmanager-samples/community/lustre/
-```
-
-設定値を編集します。必要となる容量やパフォーマンスをベースに、値を適宜ご編集ください。
-
-```text
-cat << EOF >lustre.yaml
-imports:
-- path: lustre.jinja
-
-resources:
-- name: lustre
-  type: lustre.jinja
-  properties:
-    ## Cluster Configuration
-    cluster_name            : lustre
-    zone                    : {{zone}}
-    cidr                    : {{subnet-range}}
-    vpc_net                 : {{vpc}}
-    vpc_subnet              : {{subnet}}
-    external_ips            : True
-
-    ## Filesystem Configuration
-    fs_name                 : lustre
-    lustre_version          : latest-release
-    e2fs_version            : latest
-
-    ## MDS/MGS Configuration
-    mds_node_count          : 1
-    mds_machine_type        : n1-standard-32
-    mds_boot_disk_type      : pd-standard
-    mds_boot_disk_size_gb   : 20
-    mdt_disk_type           : pd-ssd
-    mdt_disk_size_gb        : 200
-
-    ## OSS Configuration
-    oss_node_count          : 2
-    oss_machine_type        : n1-standard-16
-    oss_boot_disk_type      : pd-standard
-    oss_boot_disk_size_gb   : 20
-    ost_disk_type           : pd-standard
-    ost_disk_size_gb        : 500
-EOF
-```
-
-## Lustre クラスタの構築
-
-### クラスタを構築
-
-[Deployment Manager](https://cloud.google.com/deployment-manager?hl=ja) という機能を使い、テンプレートの内容を正としたクラスタを構築します。
-
-```bash
-gcloud services enable deploymentmanager.googleapis.com
-gcloud deployment-manager deployments create lustre --config lustre.yaml
-```
-
-### エラーが起こったら
-
-`Quota 'SSD_TOTAL_GB' exceeded.` など、クラスタ構築時にエラーが起こってしまったら、[内容を確認しデプロイメントをいったん削除](https://console.cloud.google.com/dm/deployments) します。問題が解決したら改めてクラスタ構築をお試しください。
-
-### クラスタの初期化
-
-初期化処理が完了するまで進行状況をトラッキングします。*‘Started Google Compute Engine Startup Scripts.’ と出力されるまで* お待ち下さい。n1-standard-32 で 15 分程度かかります。
-
-```bash
-gcloud compute ssh lustre-mds1 --zone {{zone}} --tunnel-through-iap \
-    --command "sudo journalctl -fu google-startup-scripts.service"
-```
-
-## 動作確認と、計算のためのディレクトリ作成
-
-管理サーバ（メタデータサーバ兼任）にログインし
-
-```bash
-gcloud compute ssh lustre-mds1 --zone {{zone}} --tunnel-through-iap
-```
-
-メタデータターゲットがローカルにマウントされていることを確認してみましょう。
-
-```bash
-mount | grep lustre
-```
-
-管理サーバ、計算クラスタにマウントするためのディレクトリを用意します。作業ディレクトリにマウントし
-
-```bash
-mkdir work
-sudo mount -t lustre lustre-mds1:/lustre work
-```
-
-OSS の台数分ストライピングされるよう `-c -1` の指定もしておきます。
-
-```bash
-cd work
-sudo mkdir -p apps users
-sudo lfs setstripe -c -1 apps
-sudo lfs setstripe -c -1 users
-sudo lfs getstripe users
-```
-
-後片付けをして SSH 接続を閉じます。
-
-```bash
-cd .. && sudo umount work
-sudo rm -rf work/
-exit
 ```
 
 ## 計算クラスタの構築の準備 (1)
@@ -233,17 +118,6 @@ resources:
     external_compute_ips  : False
     private_google_access : True
 
-    # ファイルシステムのマウント（共通）
-    network_storage:
-      - fs_type: lustre
-        server_ip: lustre-mds1.{{zone}}.c.${storage_project_id}.internal
-        remote_mount: /lustre/users
-        local_mount: /home
-      - fs_type: lustre
-        server_ip: lustre-mds1.{{zone}}.c.${storage_project_id}.internal
-        remote_mount: /lustre/apps
-        local_mount: /apps
-
     partitions:
       - name              : debug
         machine_type      : c2-standard-60
@@ -263,9 +137,14 @@ EOF
 以下コマンドで、計算クラスタを構築しましょう。
 
 ```bash
+gcloud services enable deploymentmanager.googleapis.com
 gcloud deployment-manager deployments create hpc-cluster \
     --config slurm-cluster.yaml
 ```
+
+### エラーが起こったら
+
+`Quota 'SSD_TOTAL_GB' exceeded.` など、クラスタ構築時にエラーが起こってしまったら、[内容を確認しデプロイメントをいったん削除](https://console.cloud.google.com/dm/deployments) します。問題が解決したら改めてクラスタ構築をお試しください。
 
 ### 計算クラスタの初期化
 
@@ -326,12 +205,6 @@ sacct
 
 ```bash
 gcloud deployment-manager deployments delete hpc-cluster
-```
-
-Lustre クラスタの削除
-
-```bash
-gcloud deployment-manager deployments delete lustre
 ```
 
 ## これで終わりです
