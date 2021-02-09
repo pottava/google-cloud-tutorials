@@ -10,7 +10,7 @@
 
 [Lustre](https://www.lustre.org/) による分散ストレージと [Slurm](https://slurm.schedmd.com/documentation.html) ベースの計算クラスタを構築するための手順です。
 
-**所要時間**: 約 45 分
+**所要時間**: 約 60 分
 
 **前提条件**:
 
@@ -107,11 +107,11 @@ resources:
     mdt_disk_size_gb        : 200
 
     ## OSS Configuration
-    oss_node_count          : 2
+    oss_node_count          : 4
     oss_machine_type        : n1-standard-16
     oss_boot_disk_type      : pd-standard
     oss_boot_disk_size_gb   : 20
-    ost_disk_type           : pd-standard
+    ost_disk_type           : pd-ssd
     ost_disk_size_gb        : 500
 EOF
 ```
@@ -129,7 +129,16 @@ gcloud deployment-manager deployments create lustre --config lustre.yaml
 
 ### エラーが起こったら
 
-`Quota 'SSD_TOTAL_GB' exceeded.` など、クラスタ構築時にエラーが起こってしまったら、[内容を確認しデプロイメントをいったん削除](https://console.cloud.google.com/dm/deployments) します。問題が解決したら改めてクラスタ構築をお試しください。
+`Quota 'SSD_TOTAL_GB' exceeded.` など、クラスタ構築時にエラーが起こってしまったら、[内容を確認しデプロイメントをいったん削除](https://console.cloud.google.com/dm/deployments) します。多くの場合、割り当て上限を超えたリソースの要求が原因です。[こちら](https://cloud.google.com/docs/quota?hl=ja#managing_your_quota) を参考に、以下の値を中心にご確認ください。問題が解決したら改めてクラスタ構築をお試しください。
+
+- Compute Engine API: C2 CPUs
+- Compute Engine API: N2 CPUs
+- Compute Engine API: CPUs (all regions)
+- Compute Engine API: VM instances
+- Compute Engine API: Persistent Disk Standard (GB)
+- Compute Engine API: Persistent Disk SSD (GB)
+- Compute Engine API: In-use IP addresses
+- Compute Engine API: Affinity Groups
 
 ### クラスタの初期化
 
@@ -223,7 +232,7 @@ resources:
     login_node_count        : 0
 
     # 計算用 VM イメージ作成用
-    compute_image_machine_type : n1-standard-2
+    compute_image_machine_type : c2-standard-8
 
     # バージョン
     slurm_version : 19.05.8
@@ -236,11 +245,11 @@ resources:
     # ファイルシステムのマウント（共通）
     network_storage:
       - fs_type: lustre
-        server_ip: lustre-mds1.{{zone}}.c.${storage_project_id}.internal
+        server_ip: lustre-mds1.{{zone}}.c.{{project-id}}.internal
         remote_mount: /lustre/users
         local_mount: /home
       - fs_type: lustre
-        server_ip: lustre-mds1.{{zone}}.c.${storage_project_id}.internal
+        server_ip: lustre-mds1.{{zone}}.c.{{project-id}}.internal
         remote_mount: /lustre/apps
         local_mount: /apps
 
@@ -269,7 +278,7 @@ gcloud deployment-manager deployments create hpc-cluster \
 
 ### 計算クラスタの初期化
 
-クラスタの構成が完了するまで進行状況をトラッキングします。‘Started Google Compute Engine Startup Scripts.’ と出力されるまで お待ち下さい。およそ 20 分程度かかります。
+クラスタの構成が完了するまで進行状況をトラッキングします。‘Started Google Compute Engine Startup Scripts.’ と出力されるまで お待ち下さい。およそ 30 分強かかります。
 
 ```bash
 gcloud compute ssh hpc-controller --zone {{zone}} \
