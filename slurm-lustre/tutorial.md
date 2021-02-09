@@ -100,15 +100,15 @@ resources:
 
     ## MDS/MGS Configuration
     mds_node_count          : 1
-    mds_machine_type        : n1-standard-32
+    mds_machine_type        : n1-standard-8
     mds_boot_disk_type      : pd-standard
     mds_boot_disk_size_gb   : 20
     mdt_disk_type           : pd-ssd
     mdt_disk_size_gb        : 200
 
     ## OSS Configuration
-    oss_node_count          : 4
-    oss_machine_type        : n1-standard-16
+    oss_node_count          : 2
+    oss_machine_type        : n1-standard-8
     oss_boot_disk_type      : pd-standard
     oss_boot_disk_size_gb   : 20
     ost_disk_type           : pd-ssd
@@ -341,6 +341,15 @@ Lustre クラスタの削除
 
 ```bash
 gcloud deployment-manager deployments delete lustre
+```
+
+Firewall, VPC の削除
+
+```bash
+gcloud compute firewall-rules delete allow-from-iap --quiet
+gcloud compute firewall-rules delete allow-from-internal --quiet
+gcloud compute networks subnets delete {{subnet}} --quiet
+gcloud compute networks delete {{vpc}} --quiet
 ```
 
 ## これで終わりです

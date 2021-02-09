@@ -222,6 +222,7 @@ resources:
     cidr                    : {{subnet-range}}
     vpc_net                 : {{vpc}}
     vpc_subnet              : {{subnet}}
+    shared_vpc_host_proj    : ${host_project_id}
     external_ips            : True
 
     ## Filesystem Configuration
@@ -231,15 +232,15 @@ resources:
 
     ## MDS/MGS Configuration
     mds_node_count          : 1
-    mds_machine_type        : n1-standard-32
+    mds_machine_type        : n1-standard-8
     mds_boot_disk_type      : pd-standard
     mds_boot_disk_size_gb   : 20
     mdt_disk_type           : pd-ssd
-    mdt_disk_size_gb        : 200
+    mdt_disk_size_gb        : 100
 
     ## OSS Configuration
-    oss_node_count          : 4
-    oss_machine_type        : n1-standard-16
+    oss_node_count          : 2
+    oss_machine_type        : n1-standard-8
     oss_boot_disk_type      : pd-standard
     oss_boot_disk_size_gb   : 20
     ost_disk_type           : pd-ssd
@@ -354,6 +355,7 @@ resources:
     zone                    : {{zone}}
     vpc_net                 : {{vpc}}
     vpc_subnet              : {{subnet}}
+    shared_vpc_host_project : ${host_project_id}
 
     # ヘッドノード
     controller_machine_type : n1-standard-2
@@ -485,8 +487,17 @@ Cloud NAT の削除
 
 ```bash
 gcloud config set project "${host_project_id}"
-gcloud compute routers nats delete nat-config
-gcloud compute routers delete nat-router --region {{region}}
+gcloud compute routers nats delete nat-config --router nat-router --quiet
+gcloud compute routers delete nat-router --quiet
+```
+
+Firewall, VPC の削除
+
+```bash
+gcloud compute firewall-rules delete allow-from-iap --quiet
+gcloud compute firewall-rules delete allow-from-internal --quiet
+gcloud compute networks subnets delete {{subnet}} --quiet
+gcloud compute networks delete {{vpc}} --quiet
 ```
 
 ## これで終わりです
