@@ -31,6 +31,17 @@ cloudshell_open --repo_url "https://github.com/pottava/secured-gke-tutorial.git"
 teachme ~/cloudshell_open/secured-gke-tutorial/tutorial.md
 ```
 
+### Anthos on bare metal の構築
+
+[![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.png)](https://console.cloud.google.com/home/dashboard?cloudshell=true)
+
+```sh
+cloudshell_open --page "shell" \
+    --repo_url "https://github.com/GoogleCloudPlatform/gcp-getting-started-lab-jp.git" \
+    --tutorial "appmod/anthos-baremetal/01-setup.md"
+teachme ~/cloudshell_open/gcp-getting-started-lab-jp/appmod/anthos-baremetal/01-setup.md
+```
+
 ## HPC
 
 ### Slurm による HPC 環境の構築
@@ -42,14 +53,15 @@ teachme ~/cloudshell_open/secured-gke-tutorial/tutorial.md
 2. 以下のコマンドをブラウザ上のターミナルで実行してください。チュートリアルが開始します。
 
 ```sh
-cloudshell_open --repo_url "https://github.com/pottava/google-cloud-tutorials.git" \
-    --page "shell" --tutorial "slurm/tutorial.md"
+cloudshell_open --page "shell" \
+    --repo_url "https://github.com/GoogleCloudPlatform/gcp-getting-started-lab-jp.git" \
+    --tutorial "hpc/slurm/tutorial.md"
 ```
 
 3. Cloud Shell の再起動や予期せずチュートリアルが消えてしまった場合は以下で再開できます。
 
 ```sh
-teachme ~/cloudshell_open/google-cloud-tutorials/slurm/tutorial.md
+teachme ~/cloudshell_open/gcp-getting-started-lab-jp/hpc/slurm/tutorial.md
 ```
 
 ### Slurm と Lustre による HPC 環境の構築
@@ -57,9 +69,10 @@ teachme ~/cloudshell_open/google-cloud-tutorials/slurm/tutorial.md
 [![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.png)](https://console.cloud.google.com/home/dashboard?cloudshell=true)
 
 ```sh
-cloudshell_open --repo_url "https://github.com/pottava/google-cloud-tutorials.git" \
-    --page "shell" --tutorial "slurm-lustre/tutorial.md"
-teachme ~/cloudshell_open/google-cloud-tutorials/slurm-lustre/tutorial.md
+cloudshell_open --page "shell" \
+    --repo_url "https://github.com/GoogleCloudPlatform/gcp-getting-started-lab-jp.git" \
+    --tutorial "hpc/slurm-lustre/tutorial.md"
+teachme ~/cloudshell_open/gcp-getting-started-lab-jp/hpc/slurm-lustre/tutorial.md
 ```
 
 ### Slurm と Lustre による HPC 環境の構築（共有 VPC 版）
@@ -67,7 +80,8 @@ teachme ~/cloudshell_open/google-cloud-tutorials/slurm-lustre/tutorial.md
 [![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.png)](https://console.cloud.google.com/home/dashboard?cloudshell=true)
 
 ```sh
-cloudshell_open --repo_url "https://github.com/pottava/google-cloud-tutorials.git" \
-    --page "shell" --tutorial "slurm-lustre-with-shared-vpc/tutorial.md"
-teachme ~/cloudshell_open/google-cloud-tutorials/slurm-lustre-with-shared-vpc/tutorial.md
+cloudshell_open --page "shell" \
+    --repo_url "https://github.com/GoogleCloudPlatform/gcp-getting-started-lab-jp.git" \
+    --tutorial "hpc/slurm-lustre-with-shared-vpc/tutorial.md"
+teachme ~/cloudshell_open/gcp-getting-started-lab-jp/hpc/slurm-lustre-with-shared-vpc/tutorial.md
 ```
